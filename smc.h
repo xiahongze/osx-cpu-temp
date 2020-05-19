@@ -40,6 +40,7 @@
 
 // key values
 #define SMC_KEY_CPU_TEMP "TC0P"
+#define SMC_KEY_GPU_TEMP "TG0P"
 #define SMC_KEY_FAN_SPEED "F%dAc"
 #define SMC_KEY_MIN_FAN_SPEED "F%dMn"
 #define SMC_KEY_MAX_FAN_SPEED "F%dMx"
@@ -52,6 +53,7 @@
 #include <IOKit/ps/IOPowerSources.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 typedef struct {
     char major;

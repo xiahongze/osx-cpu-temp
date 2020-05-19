@@ -245,6 +245,9 @@ int getDesignCycleCount() {
         return designCycleCount;
 }
 
+/**
+ * not working
+ */
 const char *getBatteryHealth() {
     CFDictionaryRef powerSourceInformation = powerSourceInfo(0);
 
@@ -264,6 +267,9 @@ const int hasBattery() {
     return !(powerSourceInformation == NULL);
 }
 
+/**
+ * not really working
+ */
 int getBatteryCharge() {
     CFNumberRef currentCapacity;
     CFNumberRef maximumCapacity;
@@ -288,130 +294,58 @@ int getBatteryCharge() {
     return charge;
 }
 
-// /*
-//  RUBY MODULES
-// */
-// VALUE SMC_INFO = Qnil;
-// VALUE CPU_STATS = Qnil;
-// VALUE FAN_STATS = Qnil;
-// VALUE BATTERY_STATS = Qnil;
-// /*
-//  * Define Ruby modules and associated methods
-//  * We never call this, Ruby does.
-//  */
-// void Init_osx_stats() {
-//     SMC_INFO = rb_define_module("SMC_INFO");
-//     rb_define_method(SMC_INFO, "is_key_supported", method_SMCKeySupported, 1);
-
-//     CPU_STATS = rb_define_module("CPU_STATS");
-//     rb_define_method(CPU_STATS, "get_cpu_temp", method_get_cpu_temp, 0);
-
-//     FAN_STATS = rb_define_module("FAN_STATS");
-//     rb_define_method(FAN_STATS, "get_fan_number", method_get_fan_number, 0);
-//     rb_define_method(FAN_STATS, "get_fan_speed", method_get_fan_speed, 1);
-
-//     BATTERY_STATS = rb_define_module("BATTERY_STATS");
-//     rb_define_method(BATTERY_STATS, "has_battery?", method_has_battery, 0);
-//     rb_define_method(BATTERY_STATS, "get_battery_health", method_get_battery_health, 0);
-//     rb_define_method(BATTERY_STATS, "get_battery_design_cycle_count", method_get_battery_design_cycle_count, 0);
-//     rb_define_method(BATTERY_STATS, "get_battery_temp", method_get_battery_temp, 0);
-//     rb_define_method(BATTERY_STATS, "get_battery_time_remaining", method_get_battery_time_remaining, 0);
-//     rb_define_method(BATTERY_STATS, "get_battery_charge", method_get_battery_charge, 0);
-// }
-
-// VALUE method_SMCKeySupported(VALUE self, VALUE key) {
-//     char *keyString = RSTRING_PTR(key);
-//     SMCOpen();
-//     double temp = SMCGetTemperature(keyString);
-//     SMCClose();
-
-//     return rb_float_new(temp);
-// }
-
-// VALUE method_get_cpu_temp(VALUE self) {
-//     SMCOpen();
-//     double temp = SMCGetTemperature(SMC_KEY_CPU_TEMP);
-//     SMCClose();
-
-//     return rb_float_new(temp);
-// }
-
-// VALUE method_get_fan_number(VALUE self) {
-//     SMCOpen();
-//     int num = SMCGetFanNumber(SMC_KEY_FAN_NUM);
-//     SMCClose();
-
-//     return INT2NUM(num);
-// }
-
-// VALUE method_get_fan_speed(VALUE self, VALUE num) {
-//     uint fanNum = NUM2UINT(num);
-//     SMCOpen();
-//     float speed = SMCGetFanSpeed(fanNum);
-//     SMCClose();
-
-//     return rb_float_new(speed);
-// }
-
-// VALUE method_has_battery(VALUE self) { return hasBattery() ? Qtrue : Qfalse; }
-
-// VALUE method_get_battery_health(VALUE self) {
-//     const char *health = getBatteryHealth();
-//     return rb_str_new2(health);
-// }
-
-// VALUE method_get_battery_design_cycle_count(VALUE self) {
-//     int cc = getDesignCycleCount();
-//     return INT2NUM(cc);
-// }
-
-// VALUE method_get_battery_temp(VALUE self) {
-//     SMCOpen();
-//     double temp = SMCGetTemperature(SMC_KEY_BATTERY_TEMP);
-//     SMCClose();
-
-//     return rb_float_new(temp);
-// }
-
-// VALUE method_get_battery_time_remaining(VALUE self) {
-//     CFTimeInterval time_remaining;
-
-//     time_remaining = IOPSGetTimeRemainingEstimate();
-
-//     if (time_remaining == kIOPSTimeRemainingUnknown) {
-//         return rb_str_new2("Calculating");
-//     } else if (time_remaining == kIOPSTimeRemainingUnlimited) {
-//         return rb_str_new2("Unlimited");
-//     } else {
-//         return INT2NUM(time_remaining);
-//     }
-// }
-
-// VALUE method_get_battery_charge(VALUE self) {
-//     int charge = getBatteryCharge();
-
-//     if (charge == 0) {
-//         return Qnil;
-//     } else {
-//         return INT2NUM(charge);
-//     }
-// }
-
 int main(int argc, char *argv[]) {
+    if (argc == 2 && strcmp(argv[1], "-h") == 0) {
+        printf("usage: osx-cpu-temp [-h|-l] [secs]\n");
+        printf("    -h: print this help\n");
+        printf("    -l: loop forever\n");
+        printf("  secs: sleep for x secs in each iteration, -l is required for this param\n");
+        printf("\nexample: osx-cpu-temp -l 1.5\n");
+        return 0;
+    }
+
+    bool loop = false;
+    float interval = 1.0;
+    if (argc > 1 && strcmp(argv[1], "-l") == 0) {
+        loop = true;
+    }
+    if (argc == 3 && loop) {
+        interval = strtof(argv[2], NULL);
+        if (interval < 1e-2) {
+            interval = 0.1;  // that is the min
+        }
+    } else if (argc != 1) {
+        fprintf(stderr, "invalid input arguments\n");
+        return 1;
+    }
+    int interval_ms = 1000000 * interval;
+
     SMCOpen();
     int i = 0, fans = SMCGetFanNumber(SMC_KEY_FAN_NUM);
-    float bat_temp = SMCGetTemperature(SMC_KEY_BATTERY_TEMP);
-    printf("CPU\t%0.1f\t°C\n", SMCGetTemperature(SMC_KEY_CPU_TEMP));
-    printf("FAN_NUM\t%i\n", fans);
-    for (i = 0; i < fans; i++) printf("FAN_%i\t%0.1f\tRPM\n", i, SMCGetFanSpeed(i));
+    float bat_temp, cpu_temp, gpu_temp;
+    char str_to_print[80];
+    do {
+        bat_temp = SMCGetTemperature(SMC_KEY_BATTERY_TEMP);
+        cpu_temp = SMCGetTemperature(SMC_KEY_CPU_TEMP);
+        gpu_temp = SMCGetTemperature(SMC_KEY_GPU_TEMP);
+        char *pos = str_to_print;
+        pos += sprintf(pos, " CPU:%5.1f°C, GPU:%5.1f°C, BAT:%5.1f°C, FANS:", cpu_temp, gpu_temp, bat_temp);
+        for (i = 0; i < fans; i++) pos += sprintf(pos, "%5.f RPM", SMCGetFanSpeed(i));
+        printf("%s\r", str_to_print);
+        fflush(stdout);
+    } while (loop && usleep(interval_ms) == 0);
+
+    if (!loop) {
+        printf("\n");
+    }
+    // the battery part does not work well
+    // printf("HasBatt\t%i\n", hasBattery());
+    // printf("Battery\t%0.1f\t°C\n", bat_temp);
+    // printf("Health\t%s\n", getBatteryHealth());
+    // printf("DCycle\t%i\n", getDesignCycleCount());
+    // printf("Remain\t%0.0f\tmAh\n", IOPSGetTimeRemainingEstimate());
+    // printf("Charge\t%i\t%%\n", getBatteryCharge());
+
     SMCClose();
-
-    printf("HasBatt\t%i\n", hasBattery());
-    printf("Battery\t%0.1f\t°C\n", bat_temp);
-    printf("Health\t%s\n", getBatteryHealth());
-    printf("DCycle\t%i\n", getDesignCycleCount());
-    printf("Remain\t%0.0f\tmAh\n", IOPSGetTimeRemainingEstimate());
-    printf("Charge\t%i\t%%\n", getBatteryCharge());
-
     return 0;
 }
