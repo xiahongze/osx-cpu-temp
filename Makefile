@@ -1,7 +1,7 @@
 
 CC     = cc
 CFLAGS = -O2 -Wall
-INC    = -framework IOKit
+INC    = -framework IOKit -framework CoreFoundation
 PREFIX = /usr/local
 EXEC   = osx-cpu-temp
 SOURCES := $(shell find . -name '*.c')

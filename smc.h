@@ -1,6 +1,6 @@
 /*
  * Apple System Management Control (SMC) Tool
- * Copyright (C) 2006 devnull 
+ * Copyright (C) 2006 devnull
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -19,7 +19,6 @@
 
 #ifndef __SMC_H__
 #define __SMC_H__
-#endif
 
 #define VERSION "0.01"
 
@@ -37,11 +36,22 @@
 #define DATATYPE_UINT16 "ui16"
 #define DATATYPE_UINT32 "ui32"
 #define DATATYPE_SP78 "sp78"
+#define DATATYPE_FLT "flt "
 
 // key values
 #define SMC_KEY_CPU_TEMP "TC0P"
-#define SMC_KEY_GPU_TEMP "TG0P"
-#define SMC_KEY_FAN0_RPM_CUR "F0Ac"
+#define SMC_KEY_FAN_SPEED "F%dAc"
+#define SMC_KEY_MIN_FAN_SPEED "F%dMn"
+#define SMC_KEY_MAX_FAN_SPEED "F%dMx"
+#define SMC_KEY_FAN_NUM "FNum"
+#define SMC_KEY_BATTERY_TEMP "TB0T"
+
+#include <CoreFoundation/CoreFoundation.h>
+#include <IOKit/IOKitLib.h>
+#include <IOKit/ps/IOPSKeys.h>
+#include <IOKit/ps/IOPowerSources.h>
+#include <stdio.h>
+#include <string.h>
 
 typedef struct {
     char major;
@@ -88,7 +98,19 @@ typedef struct {
     SMCBytes_t bytes;
 } SMCVal_t;
 
+typedef union _data {
+    float f;
+    char b[4];
+} fltUnion;
+
 // prototypes
-double SMCGetTemperature(char* key);
-kern_return_t SMCSetFanRpm(char* key, int rpm);
-int SMCGetFanRpm(char* key);
+float SMCGetFanSpeed(int fanNum);
+int SMCGetFanNumber(char *key);
+double SMCGetTemperature(char *key);
+const char *getBatteryHealth();
+int getDesignCycleCount();
+int getBatteryCharge();
+CFTypeRef IOPSCopyPowerSourcesInfo(void);
+CFArrayRef IOPSCopyPowerSourcesList(CFTypeRef blob);
+CFDictionaryRef IOPSGetPowerSourceDescription(CFTypeRef blob, CFTypeRef ps);
+#endif
